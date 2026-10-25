@@ -166,7 +166,7 @@ def test_default_parameters(mock_svg_renderer, mock_parser, mock_path, mock_conf
     """Test conversion with default parameters"""
     test_args = ['ltspice_to_svg.py', 'test.asc']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify renderer was created with the config
@@ -177,7 +177,7 @@ def test_custom_stroke_width(mock_svg_renderer, mock_parser, mock_path, mock_con
     """Test custom stroke width parameter"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--stroke-width', '2.0']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify config was created with the stroke width
@@ -189,7 +189,7 @@ def test_custom_dot_size(mock_svg_renderer, mock_parser, mock_path, mock_config,
     """Test custom dot size parameter"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--dot-size', '2.0']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify config was created with the dot size
@@ -201,7 +201,7 @@ def test_custom_base_font_size(mock_svg_renderer, mock_parser, mock_path, mock_c
     """Test custom base font size parameter"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--base-font-size', '14.0']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify config was created with the base font size
@@ -213,7 +213,7 @@ def test_no_text(mock_svg_renderer, mock_parser, mock_path, mock_config, mock_op
     """Test no-text parameter"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--no-text']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify render_texts is not called
@@ -249,7 +249,7 @@ def test_text_rendering_options(mock_svg_renderer, mock_parser, mock_path, mock_
         '--no-pin-name'
     ]
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify set_text_rendering_options is called with the right params
@@ -268,7 +268,7 @@ def test_export_json(mock_svg_renderer, mock_parser, mock_path, mock_config, moc
     """Test JSON export functionality"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--export-json']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify export_json is called
@@ -284,8 +284,11 @@ def test_ltspice_lib_path(mock_svg_renderer, mock_parser, mock_path, mock_config
     # Verify environment variable is set
     assert os.environ['LTSPICE_LIB_PATH'] == '/custom/path'
 
-def test_get_ltspice_lib_path():
+def test_get_ltspice_lib_path(capsys):
     """Test LTspice library path detection"""
+    # Reset environment variable that might have been set by other tests
+    os.environ.pop('LTSPICE_LIB_PATH', None)
+    
     with patch('platform.system', return_value='Darwin'), \
          patch('os.getenv', side_effect=lambda x: 'testuser' if x in ['USERNAME', 'USER'] else None):
         path = get_ltspice_lib_path()
@@ -296,15 +299,26 @@ def test_get_ltspice_lib_path():
         path = get_ltspice_lib_path()
         assert path == "C:\\Users\\testuser\\AppData\\Local\\LTspice\\lib\\sym"
     
-    with patch('platform.system', return_value='Linux'):
-        with pytest.raises(OSError, match="Unsupported operating system: Linux"):
-            get_ltspice_lib_path()
+    # Unsupported operating system (e.g. Linux): main() prints error and exits
+    with patch('platform.system', return_value='Linux'), \
+         patch('sys.argv', ['ltspice_to_svg.py', 'test.asc']), \
+         patch('src.ltspice_to_svg.SchematicParser') as mock_parser:
+        mock_parser.return_value.parse.return_value = {
+            'schematic': {'test': 'data'},
+            'symbols': {'test': 'symbols'}
+        }
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Linux" in captured.out
+        assert "--ltspice-lib" in captured.out
 
 def test_no_net_label(mock_svg_renderer, mock_parser, mock_path, mock_config, mock_open_file):
     """Test --no-net-label option to skip rendering net label flags"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--no-net-label']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify configuration was created with the no_net_label option
@@ -316,7 +330,7 @@ def test_no_pin_name(mock_svg_renderer, mock_parser, mock_path, mock_config, moc
     """Test --no-pin-name option to skip rendering I/O pin text"""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--no-pin-name']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify configuration was created with the no_pin_name option
@@ -328,7 +342,7 @@ def test_font_family(mock_svg_renderer, mock_parser, mock_path, mock_config, moc
     """Test setting custom font family."""
     test_args = ['ltspice_to_svg.py', 'test.asc', '--font-family', 'Helvetica']
     
-    with patch('sys.argv', test_args):
+    with patch('sys.argv', test_args), patch('platform.system', return_value='Darwin'):
         main()
     
     # Verify renderer was created with correct config

@@ -12,6 +12,8 @@ programmatically in other Python scripts.
 """
 import os
 import platform
+import sys
+from os.path import basename
 from pathlib import Path
 from src.parsers.schematic_parser import SchematicParser
 from src.renderers.svg_renderer import SVGRenderer
@@ -20,7 +22,7 @@ from src.renderers.rendering_config import RenderingConfig
 # Version information
 __version__ = "0.2.0"
 
-def get_ltspice_lib_path() -> str:
+def get_ltspice_lib_path() -> Optional[str]:
     """
     Find the LTspice library path based on the operating system.
     
@@ -28,10 +30,8 @@ def get_ltspice_lib_path() -> str:
     the current operating system and user. Currently supports Windows and macOS.
     
     Returns:
-        str: Path to the LTspice symbol library directory
-    
-    Raises:
-        OSError: If the operating system is not supported
+        Optional[str]: Path to the LTspice symbol library directory, or None if
+        the operating system is not supported
     """
     system = platform.system()
     username = os.getenv('USERNAME') or os.getenv('USER')
@@ -41,7 +41,7 @@ def get_ltspice_lib_path() -> str:
     elif system == 'Windows':
         return f"C:\\Users\\{username}\\AppData\\Local\\LTspice\\lib\\sym"
     else:
-        raise OSError(f"Unsupported operating system: {system}")
+        return None
 
 def create_config_from_args(args):
     """
@@ -151,7 +151,18 @@ def main():
     if args.ltspice_lib:
         os.environ['LTSPICE_LIB_PATH'] = args.ltspice_lib
     elif 'LTSPICE_LIB_PATH' not in os.environ:
-        os.environ['LTSPICE_LIB_PATH'] = get_ltspice_lib_path()
+        lib_path = get_ltspice_lib_path()
+        if lib_path:
+            os.environ['LTSPICE_LIB_PATH'] = lib_path
+        else:
+            err_msg = (
+                f"{basename(sys.argv[0])}: error: no standard library path "
+                f"for operating system: {platform.system()}.\n"
+                f"Provide the symbols path with flag --ltspice-lib "
+                f"or set LTSPICE_LIB_PATH env variable"
+            )
+            print(err_msg)
+            sys.exit(1)
     
     # Parse the schematic and symbols
     parser = SchematicParser(str(asc_path))
@@ -212,4 +223,5 @@ def main():
     print(f"SVG saved to {svg_file}")
 
 if __name__ == "__main__":
-    main() 
+    main()
+
